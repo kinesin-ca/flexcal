@@ -155,6 +155,8 @@ impl Calendar {
     ) -> Option<NaiveDate> {
         let mut actual = date.clone();
 
+        println!("Adjusting {:?}", date);
+
         let is_blocked =
             |x: NaiveDate| -> bool { (!self.dow.contains(&x.weekday())) || holidays.contains(&x) };
 
@@ -215,11 +217,12 @@ impl Calendar {
     /// Returns the set of valid calendar dates within the specified range
     pub fn date_range(&self, from: NaiveDate, to: NaiveDate) -> Vec<NaiveDate> {
         let mut result = Vec::new();
-        let mut cur = from;
+        let mut cur = from.pred();
         let year = from.year();
         let mut holidays = self.get_holidays(cur);
 
-        while cur < to {
+        while cur <= to {
+            cur = cur.succ();
             if cur.year() != year {
                 holidays = self.get_holidays(cur);
             }
@@ -227,7 +230,6 @@ impl Calendar {
                 continue;
             }
             result.push(cur);
-            cur = cur.succ();
         }
         result
     }
@@ -302,8 +304,22 @@ mod tests {
                     since: None,
                     until: None,
                 },
+                DateSpec::MonthDay {
+                    month: January,
+                    day: 1u32,
+                    observed: AdjustmentPolicy::Next,
+                    description: "New Years Day".to_owned(),
+                    since: None,
+                    until: None,
+                },
             ],
             inherits: vec![],
         };
+
+        let myrange = cal.date_range(
+            NaiveDate::from_ymd(2021, 12, 15),
+            NaiveDate::from_ymd(2022, 01, 15),
+        );
+        assert_eq!(myrange.len(), 20);
     }
 }

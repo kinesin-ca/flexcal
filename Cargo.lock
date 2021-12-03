@@ -479,6 +479,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cronkin"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "chrono",
+ "crossbeam",
+ "pam",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "crossbeam"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -599,18 +611,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "ezsched"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "chrono",
- "crossbeam",
- "pam",
- "serde",
- "serde_json",
 ]
 
 [[package]]

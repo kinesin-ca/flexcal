@@ -1,4 +1,5 @@
 pub mod calendar;
+pub mod schedule;
 
 fn main() {
     println!("Hello, world");

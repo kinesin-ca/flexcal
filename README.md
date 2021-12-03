@@ -4,7 +4,18 @@ Introduction
 Easier job scheduling, supporting:
 
 - Schedules in a particular timezone
-- Calendars
+- Calendars (defining which days are in scope)
+- Schedules (defining spans of hours in a day)
+- Jobs
+  - Given a calendar
+  - And a schedule
+  - Define a pattern of when jobs should run
+    - e.g.
+      - minute = "0,15,30,35", hour = "123"
+      - minute = "0", hour = "*"
+      - minute = "5", frequency = "15" // Start at 5 past the hour, and run every 15 minutes from then
+
+A job will 
 
 Authorization
 =============
@@ -71,7 +82,7 @@ A JSON definition for a calendar looks as follows:
 ```json
 {
   "description": "Long description",
-  "dow_list": ["M","T","W","R","F"],
+  "dow_list": ["Mon","Tue","Wed","Thu","Fri", "Sat", "Sun"],
   "public": true,
   "exclude": [
     {
@@ -95,18 +106,6 @@ A JSON definition for a calendar looks as follows:
   ]
 }
 ```
-
-Letter codes are:
-
-| Day of Week | Letter |
-|-------------|--------|
-| Monday      | M      |
-| Tuesday     | T      |
-| Wednesday   | W      |
-| Thursday    | **R**  |
-| Friday      | F      |
-| Saturday    | S      |
-| Sunday      | U      |
 
 Inheritance
 -----------

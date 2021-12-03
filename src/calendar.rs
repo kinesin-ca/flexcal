@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /*
-  There are a few gaping holes here, and some deficiencies:
+  There are a few gaping holes here, and some functional deficiencies:
 
     - Holidays are only calculated within a year. If a holiday in a prior
       year is bumped to the next year, it won't be considered.
@@ -15,34 +15,50 @@ use std::collections::HashSet;
 */
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-enum AdjustmentPolicy {
+pub enum AdjustmentPolicy {
     Prev,
     Next,
     Closest,
     NoAdjustment,
 }
 
+impl Default for AdjustmentPolicy {
+    fn default() -> AdjustmentPolicy {
+        AdjustmentPolicy::NoAdjustment
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
-enum DateSpec {
+#[serde(tag = "type")]
+pub enum DateSpec {
     SpecificDate {
         date: NaiveDate,
+        #[serde(default)]
         description: String,
     },
-    MonthDay {
+    DayOfMonth {
         month: chrono::Month,
         day: u32,
+        #[serde(default)]
         observed: AdjustmentPolicy,
+        #[serde(default)]
         description: String,
+        #[serde(default)]
         since: Option<NaiveDate>,
+        #[serde(default)]
         until: Option<NaiveDate>,
     },
-    MonthNthDay {
+    NthDayOccurance {
         month: Month,
         dow: Weekday,
         offset: i8,
+        #[serde(default)]
         observed: AdjustmentPolicy,
+        #[serde(default)]
         description: String,
+        #[serde(default)]
         since: Option<NaiveDate>,
+        #[serde(default)]
         until: Option<NaiveDate>,
     },
 }
@@ -54,7 +70,7 @@ impl DateSpec {
 
         match self {
             SpecificDate { date, .. } => Some((*date, AdjustmentPolicy::NoAdjustment)),
-            MonthDay {
+            DayOfMonth {
                 month,
                 day,
                 since,
@@ -73,7 +89,7 @@ impl DateSpec {
                     ))
                 }
             }
-            MonthNthDay {
+            NthDayOccurance {
                 month,
                 dow,
                 offset,
@@ -121,13 +137,23 @@ impl DateSpec {
     }
 }
 
+fn default_dow_set() -> HashSet<Weekday> {
+    use Weekday::*;
+    HashSet::from([Mon, Tue, Wed, Thu, Fri])
+}
+
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
-struct Calendar {
-    description: String,
-    dow: HashSet<Weekday>,
-    public: bool,
-    excluded: Vec<DateSpec>,
-    inherits: Vec<String>,
+pub struct Calendar {
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "default_dow_set")]
+    pub dow: HashSet<Weekday>,
+    #[serde(default)]
+    pub public: bool,
+    #[serde(default)]
+    pub exclude: Vec<DateSpec>,
+    #[serde(default)]
+    pub inherits: Vec<String>,
 }
 
 impl Calendar {
@@ -200,7 +226,7 @@ impl Calendar {
     /// Get the set of all holidays in a given year
     pub fn get_holidays(&self, date: NaiveDate) -> HashSet<NaiveDate> {
         let holidays: Vec<(NaiveDate, AdjustmentPolicy)> = self
-            .excluded
+            .exclude
             .iter()
             .map(|x| x.resolve(date.year()))
             .filter(|x| x.is_some())
@@ -248,8 +274,8 @@ mod tests {
             description: "Test description".to_owned(),
             dow: HashSet::from([Mon, Tue, Wed, Thu, Fri]),
             public: false,
-            excluded: vec![
-                DateSpec::MonthDay {
+            exclude: vec![
+                DateSpec::DayOfMonth {
                     month: December,
                     day: 25u32,
                     observed: AdjustmentPolicy::Next,
@@ -257,7 +283,7 @@ mod tests {
                     since: None,
                     until: None,
                 },
-                DateSpec::MonthDay {
+                DateSpec::DayOfMonth {
                     month: December,
                     day: 26u32,
                     observed: AdjustmentPolicy::Next,
@@ -287,8 +313,8 @@ mod tests {
             description: "Test description".to_owned(),
             dow: HashSet::from([Mon, Tue, Wed, Thu, Fri]),
             public: false,
-            excluded: vec![
-                DateSpec::MonthDay {
+            exclude: vec![
+                DateSpec::DayOfMonth {
                     month: December,
                     day: 25u32,
                     observed: AdjustmentPolicy::Next,
@@ -296,7 +322,7 @@ mod tests {
                     since: None,
                     until: None,
                 },
-                DateSpec::MonthDay {
+                DateSpec::DayOfMonth {
                     month: December,
                     day: 26u32,
                     observed: AdjustmentPolicy::Next,
@@ -304,7 +330,7 @@ mod tests {
                     since: None,
                     until: None,
                 },
-                DateSpec::MonthDay {
+                DateSpec::DayOfMonth {
                     month: January,
                     day: 1u32,
                     observed: AdjustmentPolicy::Next,
@@ -321,5 +347,38 @@ mod tests {
             NaiveDate::from_ymd(2022, 01, 15),
         );
         assert_eq!(myrange.len(), 20);
+    }
+
+    #[test]
+    fn test_deserialization() {
+        let data = r#"
+            {
+            "description": "Long description",
+            "dow": ["Mon","Tue","Wed","Thu","Fri", "Sat", "Sun"],
+            "public": true,
+            "exclude": [
+                {
+                    "type": "SpecificDate",
+                    "date": "2021-01-01",
+                    "description": "New Years Day"
+                },
+                {
+                    "type": "DayOfMonth",
+                    "month": "January",
+                    "day": 17,
+                    "observed": "Closest",
+                    "description": "Martin Luther King Day"
+                },
+                {
+                    "type": "NthDayOccurance",
+                    "month": "January",
+                    "dow": "Mon",
+                    "offset": -1,
+                    "observed": "Closest",
+                    "description": "Final Monday Margarita Day"
+                }
+            ]
+            }"#;
+        let cal: Calendar = serde_json::from_str(data).unwrap();
     }
 }

@@ -27,10 +27,10 @@ Calendars consist of:
       - YYYY-MM-DD
         - Add a specific date to a calendar's exclusion list
       - Month and Day
-      - Month, Day of week, and Number (e.g. 2nd Friday)
+      - Month, Day of week, and an offset (e.g. 2nd Friday)
         - Number can be relative, so 1 is first, -1 is last
     - Optional `description`
-    - Optional `observed` attribute that is `next`, `prev`, `closest`, `none` (default)
+    - Optional `observed` attribute that is `Next`, `Prev`, `Closest`, `NoAdjustment` (default)
       that is in the day of week mask and not also a holiday
 - A public flag, which if true will make the calendar publicly available
 - A name, which can contain letters, numbers, dashes, and underscores
@@ -86,8 +86,8 @@ A JSON definition for a calendar looks as follows:
       },
     {
       "month": "January",
-      "dow": "M",
-      "-1",
+      "dow": ["Mon"],
+      "offset": "-1",
       "observed": "closest",
       "description": "Final Monday Margarita Day"
       },
@@ -148,13 +148,15 @@ By default, Jobs are run as the user that submitted them.
   "description":  "Description of job",
   "calendar": "US Holidays",
   "timezone": "Atlantic/Reykjavik",
-  "schedule": {
-    "start": {
-      "minute": "5",
-      "hour": "*",
-    },
-    "frequency": "15m"
-  },
+  "schedules": [
+    {
+      "start": {
+        "minute": "5",
+        "hour": "*",
+      },
+      "frequency": "15m"
+    }
+  ],
   "command": {
   },
   "environment": {

@@ -1,3 +1,4 @@
+use crate::date_range::*;
 use chrono::naive::NaiveDate;
 use chrono::{Datelike, Month, Weekday};
 use serde::{Deserialize, Serialize};
@@ -65,11 +66,14 @@ pub enum DateSpec {
 
 impl DateSpec {
     /// Get exact date of event and its policy, if it occured in that year
-    fn resolve(&self, year: i32) -> Option<(NaiveDate, AdjustmentPolicy)> {
+    fn resolve(&self, year: i32) -> Option<(DateRange, AdjustmentPolicy)> {
         use DateSpec::*;
 
         match self {
-            SpecificDate { date, .. } => Some((*date, AdjustmentPolicy::NoAdjustment)),
+            SpecificDate { date, .. } => Some((
+                DateRange::new(*date, date.succ()),
+                AdjustmentPolicy::NoAdjustment,
+            )),
             DayOfMonth {
                 month,
                 day,
@@ -83,10 +87,8 @@ impl DateSpec {
                 } else if until.is_some() && until.unwrap().year() < year {
                     None
                 } else {
-                    Some((
-                        NaiveDate::from_ymd(year, month.number_from_month(), *day),
-                        *observed,
-                    ))
+                    let date = NaiveDate::from_ymd(year, month.number_from_month(), *day);
+                    Some((DateRange::new(date, date.succ()), *observed))
                 }
             }
             NthDayOccurance {
@@ -118,7 +120,7 @@ impl DateSpec {
                             date = date.checked_sub_signed(chrono::Duration::days(7)).unwrap();
                             off += 1;
                         }
-                        Some((date, *observed))
+                        Some((DateRange::new(date, date.succ()), *observed))
                     } else {
                         let mut date = NaiveDate::from_ymd(year, month_num, 1);
                         while date.weekday() != *dow {
@@ -129,7 +131,7 @@ impl DateSpec {
                             date = date.checked_add_signed(chrono::Duration::days(7)).unwrap();
                             off -= 1;
                         }
-                        Some((date, *observed))
+                        Some((DateRange::new(date, date.succ()), *observed))
                     }
                 }
             }
@@ -157,15 +159,17 @@ pub struct Calendar {
 }
 
 impl Calendar {
-    fn adjust_workdays(&self, workdays: &Vec<(NaiveDate, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
+    fn adjust_workdays(&self, workdays: &Vec<(DateRange, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
         let mut observed = HashSet::new();
 
-        for (date, policy) in workdays.iter() {
-            match self.adjust_workday(*date, policy, &observed) {
-                Some(workday) => {
-                    observed.insert(workday);
+        for (date_range, policy) in workdays.iter() {
+            for date in date_range {
+                match self.adjust_workday(date, policy, &observed) {
+                    Some(workday) => {
+                        observed.insert(workday);
+                    }
+                    None => {}
                 }
-                None => {}
             }
         }
 
@@ -225,7 +229,7 @@ impl Calendar {
 
     /// Get the set of all workdays in a given year
     pub fn get_workdays(&self, date: NaiveDate) -> HashSet<NaiveDate> {
-        let workdays: Vec<(NaiveDate, AdjustmentPolicy)> = self
+        let workdays: Vec<(DateRange, AdjustmentPolicy)> = self
             .exclude
             .iter()
             .map(|x| x.resolve(date.year()))

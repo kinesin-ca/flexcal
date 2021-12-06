@@ -1,4 +1,5 @@
 pub mod calendar;
+pub mod date_range;
 pub mod schedule;
 
 fn main() {

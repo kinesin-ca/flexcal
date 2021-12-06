@@ -6,12 +6,12 @@ use std::collections::HashSet;
 /*
   There are a few gaping holes here, and some functional deficiencies:
 
-    - Holidays are only calculated within a year. If a holiday in a prior
+    - workdays are only calculated within a year. If a workday in a prior
       year is bumped to the next year, it won't be considered.
-    - Holiday impact is searched forward. If there is a mix of AdjustmentPolicy's
-      then some weird stuff can happen (Holidays occur A, B, but end up getting
+    - workday impact is searched forward. If there is a mix of AdjustmentPolicy's
+      then some weird stuff can happen (workdays occur A, B, but end up getting
       observed B, A)
-    - No support for holiday ranges (e.g. Golden Week)
+    - No support for workday ranges (e.g. Golden Week)
 */
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -157,13 +157,13 @@ pub struct Calendar {
 }
 
 impl Calendar {
-    fn adjust_holidays(&self, holidays: &Vec<(NaiveDate, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
+    fn adjust_workdays(&self, workdays: &Vec<(NaiveDate, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
         let mut observed = HashSet::new();
 
-        for (date, policy) in holidays.iter() {
-            match self.adjust_holiday(*date, policy, &observed) {
-                Some(holiday) => {
-                    observed.insert(holiday);
+        for (date, policy) in workdays.iter() {
+            match self.adjust_workday(*date, policy, &observed) {
+                Some(workday) => {
+                    observed.insert(workday);
                 }
                 None => {}
             }
@@ -172,19 +172,19 @@ impl Calendar {
         observed
     }
 
-    /// Adjust a date given existing holidays and adjustment policy
-    fn adjust_holiday(
+    /// Adjust a date given existing workdays and adjustment policy
+    fn adjust_workday(
         &self,
         date: NaiveDate,
         policy: &AdjustmentPolicy,
-        holidays: &HashSet<NaiveDate>,
+        workdays: &HashSet<NaiveDate>,
     ) -> Option<NaiveDate> {
         let mut actual = date.clone();
 
         println!("Adjusting {:?}", date);
 
         let is_blocked =
-            |x: NaiveDate| -> bool { (!self.dow.contains(&x.weekday())) || holidays.contains(&x) };
+            |x: NaiveDate| -> bool { (!self.dow.contains(&x.weekday())) || workdays.contains(&x) };
 
         use AdjustmentPolicy::*;
         match policy {
@@ -202,10 +202,10 @@ impl Calendar {
             }
             Closest => {
                 let prev = self
-                    .adjust_holiday(date, &AdjustmentPolicy::Prev, holidays)
+                    .adjust_workday(date, &AdjustmentPolicy::Prev, workdays)
                     .unwrap();
                 let next = self
-                    .adjust_holiday(date, &AdjustmentPolicy::Next, holidays)
+                    .adjust_workday(date, &AdjustmentPolicy::Next, workdays)
                     .unwrap();
                 if (date - prev) < (next - date) {
                     Some(prev)
@@ -223,21 +223,21 @@ impl Calendar {
         }
     }
 
-    /// Get the set of all holidays in a given year
-    pub fn get_holidays(&self, date: NaiveDate) -> HashSet<NaiveDate> {
-        let holidays: Vec<(NaiveDate, AdjustmentPolicy)> = self
+    /// Get the set of all workdays in a given year
+    pub fn get_workdays(&self, date: NaiveDate) -> HashSet<NaiveDate> {
+        let workdays: Vec<(NaiveDate, AdjustmentPolicy)> = self
             .exclude
             .iter()
             .map(|x| x.resolve(date.year()))
             .filter(|x| x.is_some())
             .map(|x| x.unwrap())
             .collect();
-        self.adjust_holidays(&holidays)
+        self.adjust_workdays(&workdays)
     }
 
-    /// Returns true if the given date is a holiday / non-business day
-    fn is_holiday(&self, date: NaiveDate) -> bool {
-        self.get_holidays(date).contains(&date)
+    /// Returns true if the given date is a workday / non-business day
+    fn is_workday(&self, date: NaiveDate) -> bool {
+        self.get_workdays(date).contains(&date)
     }
 
     /// Returns the set of valid calendar dates within the specified range
@@ -245,14 +245,14 @@ impl Calendar {
         let mut result = Vec::new();
         let mut cur = from.pred();
         let year = from.year();
-        let mut holidays = self.get_holidays(cur);
+        let mut workdays = self.get_workdays(cur);
 
         while cur <= to {
             cur = cur.succ();
             if cur.year() != year {
-                holidays = self.get_holidays(cur);
+                workdays = self.get_workdays(cur);
             }
-            if !self.dow.contains(&cur.weekday()) || holidays.contains(&cur) {
+            if !self.dow.contains(&cur.weekday()) || workdays.contains(&cur) {
                 continue;
             }
             result.push(cur);
@@ -296,12 +296,12 @@ mod tests {
         };
 
         // Christmas falls on a Saturday, observed was Monday
-        assert!(cal.is_holiday(NaiveDate::from_ymd(2021, 12, 27)));
+        assert!(cal.is_workday(NaiveDate::from_ymd(2021, 12, 27)));
 
         // Boxing Day falls on a Sunday, observed is a Tuesday
-        assert!(cal.is_holiday(NaiveDate::from_ymd(2021, 12, 28)));
+        assert!(cal.is_workday(NaiveDate::from_ymd(2021, 12, 28)));
 
-        assert!(!cal.is_holiday(NaiveDate::from_ymd(2021, 12, 24)));
+        assert!(!cal.is_workday(NaiveDate::from_ymd(2021, 12, 24)));
     }
 
     #[test]
@@ -379,6 +379,7 @@ mod tests {
                 }
             ]
             }"#;
-        let cal: Calendar = serde_json::from_str(data).unwrap();
+        let res: serde_json::Result<Calendar> = serde_json::from_str(data);
+        assert!(res.is_ok());
     }
 }

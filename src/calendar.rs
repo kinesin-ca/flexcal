@@ -64,11 +64,17 @@ pub enum DateSpec {
 
 impl DateSpec {
     /// Get exact date of event and its policy, if it occured in that year
-    fn resolve(&self, year: i32) -> Option<(NaiveDate, AdjustmentPolicy)> {
+    fn resolve(&self, start: NaiveDate, end: NaiveDate) -> Option<(Vec<NaiveDate>, AdjustmentPolicy)> {
         use DateSpec::*;
 
         match self {
-            SpecificDate { date, .. } => Some((*date, AdjustmentPolicy::NoAdjustment)),
+            SpecificDate { date, .. } => {
+                if date < start || end < date {
+                    None
+                } else {
+                    Some((vec![*date], AdjustmentPolicy::NoAdjustment)),
+                }
+            }
             DayOfMonth {
                 month,
                 day,
@@ -77,9 +83,14 @@ impl DateSpec {
                 observed,
                 ..
             } => {
-                if valid_since.is_some() && valid_since.unwrap().year() > year {
+                if valid_since > end || valid_until < start {
                     None
-                } else if valid_until.is_some() && valid_until.unwrap().year() < year {
+                } else {
+                    start = 
+
+                if valid_since.is_some() && valid_since.unwrap().year() > start {
+                    None
+                } else if valid_until.is_some() && valid_until.unwrap().year() < end {
                     None
                 } else {
                     let date = NaiveDate::from_ymd(year, month.number_from_month(), *day);

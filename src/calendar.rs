@@ -180,7 +180,7 @@ impl DateSpec {
     }
 }
 
-fn default_dow_set() -> HashSet<Weekday> {
+pub fn default_dow_set() -> HashSet<Weekday> {
     use Weekday::*;
     HashSet::from([Mon, Tue, Wed, Thu, Fri])
 }
@@ -282,7 +282,7 @@ impl Calendar {
     }
 
     /// Returns true if the given date is a offday / non-business day
-    fn is_offday(&self, date: NaiveDate) -> bool {
+    pub fn is_offday(&self, date: NaiveDate) -> bool {
         !self.dow.contains(&date.weekday()) || self.get_special_offdays(date, date).contains(&date)
     }
 
@@ -381,6 +381,7 @@ mod tests {
         };
 
         assert!(cal.is_offday(NaiveDate::from_ymd(2021, 12, 25)));
+        assert!(cal.is_offday(NaiveDate::from_ymd(2021, 12, 28)));
 
         let myrange = cal.date_range(
             NaiveDate::from_ymd(2021, 12, 15),

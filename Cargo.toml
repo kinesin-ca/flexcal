@@ -5,6 +5,8 @@ edition = "2021"
 license-file = "LICENSE.txt"
 description = "A flexible business calendar struct"
 keywords = [ "calendar", "business", "scheduling" ]
+repository = "https://github.com/kinesintech/flexcal"
+homepage = "https://github.com/kinesintech/flexcal"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

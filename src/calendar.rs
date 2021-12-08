@@ -192,8 +192,6 @@ pub struct Calendar {
     #[serde(default = "default_dow_set")]
     pub dow: HashSet<Weekday>,
     #[serde(default)]
-    pub public: bool,
-    #[serde(default)]
     pub exclude: Vec<DateSpec>,
     #[serde(default)]
     pub inherits: Vec<String>,
@@ -315,7 +313,6 @@ mod tests {
         let cal = Calendar {
             description: "Test description".to_owned(),
             dow: HashSet::from([Mon, Tue, Wed, Thu, Fri]),
-            public: false,
             exclude: vec![
                 DateSpec::DayOfMonth {
                     month: December,
@@ -354,7 +351,6 @@ mod tests {
         let cal = Calendar {
             description: "Test description".to_owned(),
             dow: HashSet::from([Mon, Tue, Wed, Thu, Fri]),
-            public: false,
             exclude: vec![
                 DateSpec::DayOfMonth {
                     month: December,
@@ -399,7 +395,6 @@ mod tests {
             {
             "description": "Long description",
             "dow": ["Mon","Tue","Wed","Thu","Fri", "Sat", "Sun"],
-            "public": true,
             "exclude": [
                 {
                     "type": "SpecificDate",

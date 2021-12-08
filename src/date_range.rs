@@ -1,13 +1,5 @@
 use chrono::naive::NaiveDate;
 
-/*
-pub type DateRange = Range<NaiveDate>;
-fn iter_dates(range: DateRange) -> impl Iterator<Item = NaiveDate> {
-    let ndays = (range.end - range.start).num_days();
-    (0..ndays).map(move |x| range.start.checked_add_signed(Duration::days(x)).unwrap())
-}
-*/
-
 pub struct DateRange {
     start: NaiveDate,
     end: NaiveDate,

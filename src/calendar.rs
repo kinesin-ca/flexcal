@@ -1,4 +1,3 @@
-use crate::date_range::*;
 use chrono::naive::NaiveDate;
 use chrono::{Datelike, Month, Weekday};
 use serde::{Deserialize, Serialize};
@@ -9,10 +8,9 @@ use std::collections::HashSet;
 
     - workdays are only calculated within a year. If a workday in a prior
       year is bumped to the next year, it won't be considered.
-    - workday impact is searched forward. If there is a mix of AdjustmentPolicy's
+    - workday impact is searched forward. If there is a mix of AdjustmentPolicies
       then some weird stuff can happen (workdays occur A, B, but end up getting
       observed B, A)
-    - No support for workday ranges (e.g. Golden Week)
 */
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug)]
@@ -45,9 +43,9 @@ pub enum DateSpec {
         #[serde(default)]
         description: String,
         #[serde(default)]
-        since: Option<NaiveDate>,
+        valid_since: Option<NaiveDate>,
         #[serde(default)]
-        until: Option<NaiveDate>,
+        valid_until: Option<NaiveDate>,
     },
     NthDayOccurance {
         month: Month,
@@ -58,51 +56,48 @@ pub enum DateSpec {
         #[serde(default)]
         description: String,
         #[serde(default)]
-        since: Option<NaiveDate>,
+        valid_since: Option<NaiveDate>,
         #[serde(default)]
-        until: Option<NaiveDate>,
+        valid_until: Option<NaiveDate>,
     },
 }
 
 impl DateSpec {
     /// Get exact date of event and its policy, if it occured in that year
-    fn resolve(&self, year: i32) -> Option<(DateRange, AdjustmentPolicy)> {
+    fn resolve(&self, year: i32) -> Option<(NaiveDate, AdjustmentPolicy)> {
         use DateSpec::*;
 
         match self {
-            SpecificDate { date, .. } => Some((
-                DateRange::new(*date, date.succ()),
-                AdjustmentPolicy::NoAdjustment,
-            )),
+            SpecificDate { date, .. } => Some((*date, AdjustmentPolicy::NoAdjustment)),
             DayOfMonth {
                 month,
                 day,
-                since,
-                until,
+                valid_since,
+                valid_until,
                 observed,
                 ..
             } => {
-                if since.is_some() && since.unwrap().year() > year {
+                if valid_since.is_some() && valid_since.unwrap().year() > year {
                     None
-                } else if until.is_some() && until.unwrap().year() < year {
+                } else if valid_until.is_some() && valid_until.unwrap().year() < year {
                     None
                 } else {
                     let date = NaiveDate::from_ymd(year, month.number_from_month(), *day);
-                    Some((DateRange::new(date, date.succ()), *observed))
+                    Some((date, *observed))
                 }
             }
             NthDayOccurance {
                 month,
                 dow,
                 offset,
-                since,
-                until,
+                valid_since,
+                valid_until,
                 observed,
                 ..
             } => {
-                if since.is_some() && since.unwrap().year() > year {
+                if valid_since.is_some() && valid_since.unwrap().year() > year {
                     None
-                } else if until.is_some() && until.unwrap().year() < year {
+                } else if valid_until.is_some() && valid_until.unwrap().year() < year {
                     None
                 } else {
                     let month_num = month.number_from_month();
@@ -120,7 +115,7 @@ impl DateSpec {
                             date = date.checked_sub_signed(chrono::Duration::days(7)).unwrap();
                             off += 1;
                         }
-                        Some((DateRange::new(date, date.succ()), *observed))
+                        Some((date, *observed))
                     } else {
                         let mut date = NaiveDate::from_ymd(year, month_num, 1);
                         while date.weekday() != *dow {
@@ -131,7 +126,7 @@ impl DateSpec {
                             date = date.checked_add_signed(chrono::Duration::days(7)).unwrap();
                             off -= 1;
                         }
-                        Some((DateRange::new(date, date.succ()), *observed))
+                        Some((date, *observed))
                     }
                 }
             }
@@ -159,17 +154,15 @@ pub struct Calendar {
 }
 
 impl Calendar {
-    fn adjust_workdays(&self, workdays: &Vec<(DateRange, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
+    fn adjust_workdays(&self, workdays: &Vec<(NaiveDate, AdjustmentPolicy)>) -> HashSet<NaiveDate> {
         let mut observed = HashSet::new();
 
-        for (date_range, policy) in workdays.iter() {
-            for date in date_range {
-                match self.adjust_workday(date, policy, &observed) {
-                    Some(workday) => {
-                        observed.insert(workday);
-                    }
-                    None => {}
+        for (date, policy) in workdays.iter() {
+            match self.adjust_workday(*date, policy, &observed) {
+                Some(workday) => {
+                    observed.insert(workday);
                 }
+                None => {}
             }
         }
 
@@ -229,7 +222,7 @@ impl Calendar {
 
     /// Get the set of all workdays in a given year
     pub fn get_workdays(&self, date: NaiveDate) -> HashSet<NaiveDate> {
-        let workdays: Vec<(DateRange, AdjustmentPolicy)> = self
+        let workdays: Vec<(NaiveDate, AdjustmentPolicy)> = self
             .exclude
             .iter()
             .map(|x| x.resolve(date.year()))
@@ -284,16 +277,16 @@ mod tests {
                     day: 25u32,
                     observed: AdjustmentPolicy::Next,
                     description: "Christmas".to_owned(),
-                    since: None,
-                    until: None,
+                    valid_since: None,
+                    valid_until: None,
                 },
                 DateSpec::DayOfMonth {
                     month: December,
                     day: 26u32,
                     observed: AdjustmentPolicy::Next,
                     description: "Boxing Day".to_owned(),
-                    since: None,
-                    until: None,
+                    valid_since: None,
+                    valid_until: None,
                 },
             ],
             inherits: vec![],
@@ -323,24 +316,24 @@ mod tests {
                     day: 25u32,
                     observed: AdjustmentPolicy::Next,
                     description: "Christmas".to_owned(),
-                    since: None,
-                    until: None,
+                    valid_since: None,
+                    valid_until: None,
                 },
                 DateSpec::DayOfMonth {
                     month: December,
                     day: 26u32,
                     observed: AdjustmentPolicy::Next,
                     description: "Boxing Day".to_owned(),
-                    since: None,
-                    until: None,
+                    valid_since: None,
+                    valid_until: None,
                 },
                 DateSpec::DayOfMonth {
                     month: January,
                     day: 1u32,
                     observed: AdjustmentPolicy::Next,
                     description: "New Years Day".to_owned(),
-                    since: None,
-                    until: None,
+                    valid_since: None,
+                    valid_until: None,
                 },
             ],
             inherits: vec![],
